@@ -5,3 +5,12 @@ __pycache__/
 db.sqlite3
 .env
 .vscode/
+
+# Django generated files
+media/
+logs/
+
+# Celery generated files
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal

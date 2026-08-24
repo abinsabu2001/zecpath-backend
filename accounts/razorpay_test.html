@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Razorpay Test Payment</title>
+</head>
+
+<body>
+
+    <h2>Razorpay Test Payment - ₹999</h2>
+
+    <button id="pay-button">Pay ₹999</button>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script>
+
+        var options = {
+            key: "rzp_test_TR5u4ODFrnl1pN",
+            amount: 99900,
+            currency: "INR",
+
+            name: "ZecPath",
+            description: "PRO Subscription",
+
+            "order_id": "order_TR8t45I4oYkxPH",
+
+            handler: function (response) {
+
+                console.log("Payment ID:", response.razorpay_payment_id);
+                console.log("Order ID:", response.razorpay_order_id);
+                console.log("Signature:", response.razorpay_signature);
+
+                alert(
+                    "Payment successful!\n\n" +
+                    "Order ID: " + response.razorpay_order_id + "\n\n" +
+                    "Payment ID: " + response.razorpay_payment_id + "\n\n" +
+                    "Signature: " + response.razorpay_signature
+                );
+            },
+
+            modal: {
+                ondismiss: function () {
+                    console.log("Payment window closed");
+                }
+            },
+
+            theme: {
+                color: "#3399cc"
+            }
+        };
+
+        var razorpay = new Razorpay(options);
+
+        document.getElementById("pay-button").onclick = function (e) {
+            e.preventDefault();
+            razorpay.open();
+        };
+
+    </script>
+
+</body>
+</html>
