@@ -34,5 +34,6 @@ jobs:
           RAZORPAY_KEY_SECRET: test_secret
           EMAIL_HOST_USER: test@example.com
           EMAIL_HOST_PASSWORD: test_password
+          FIELD_ENCRYPTION_KEY: H9OTwLd-vgvRZzvI8Oi4xcKDlc1m3ARBO41p_N-WYLA=
         run: |
           python manage.py check
