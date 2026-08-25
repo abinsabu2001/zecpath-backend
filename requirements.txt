@@ -15,7 +15,7 @@ click-repl==0.3.0
 colorama==0.4.6
 ConfigArgParse==1.7.5
 cryptography==49.0.0
-Django==6.0.7
+Django==4.2.27
 django-filter==25.2
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
@@ -53,7 +53,7 @@ python-decouple==3.8
 python-docx==1.2.0
 python-engineio==4.13.5
 python-socketio==5.16.4
-pywin32==312
+pywin32==312; sys_platform == "win32"
 pyzmq==27.1.0
 razorpay==2.0.1
 redis==5.3.1
