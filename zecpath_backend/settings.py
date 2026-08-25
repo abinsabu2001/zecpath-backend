@@ -28,7 +28,11 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "zecpath-backend-7zoy.onrender.com",
+    "localhost",
+    "127.0.0.1",
+]
 
 
 # Application definition
