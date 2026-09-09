@@ -10,11 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 from decouple import config
-
 
 # ============================================================
 # BASE CONFIGURATION
@@ -36,6 +35,14 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
+
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 31536000
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 
 # ============================================================
@@ -62,6 +69,8 @@ INSTALLED_APPS = [
     "accounts",
 
     "rest_framework",
+    "drf_spectacular",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "storages",
 ]
@@ -120,6 +129,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        "CONN_MAX_AGE": 60,
     }
 }
 
@@ -238,6 +248,10 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 
+    "DEFAULT_SCHEMA_CLASS": (
+        "drf_spectacular.openapi.AutoSchema"
+    ),
+
     "EXCEPTION_HANDLER": (
         "zecpath_backend.utils.exception_handler."
         "custom_exception_handler"
@@ -260,7 +274,6 @@ REST_FRAMEWORK = {
     },
 }
 
-
 # ============================================================
 # JWT
 # ============================================================
@@ -268,8 +281,10 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
 }
-
 
 # ============================================================
 # EMAIL CONFIGURATION
@@ -301,6 +316,19 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+
+
+
+# ============================================================
+# REDIS CACHE CONFIGURATION
+# ============================================================
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+    }
+}
 
 
 # ============================================================
@@ -399,5 +427,41 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+    },
+}
+
+
+# ============================================================
+# API DOCUMENTATION - SWAGGER / OPENAPI
+# ============================================================
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "ZecPath API",
+    "DESCRIPTION": (
+        "API documentation for the ZecPath recruitment platform. "
+        "The API provides authentication, candidate, employer, job, "
+        "application, and administrative services."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+
+    "SECURITY": [
+        {
+            "bearerAuth": [],
+        }
+    ],
+
+    "COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": (
+                    "Enter your JWT access token. "
+                    "Use the format: Bearer <access_token>"
+                ),
+            }
+        }
     },
 }
