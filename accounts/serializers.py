@@ -13,6 +13,7 @@ from .models import (
     InterviewSchedule,
     InterviewState,
     Job,
+    Notification,
     QuestionFlow,
     QuestionTemplate,
 )
@@ -280,3 +281,31 @@ class InterviewScheduleSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "scheduled_at",
         ]                
+
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+        write_only=True
+    )
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "user",
+            "title",
+            "message",
+            "notification_type",
+            "is_read",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "is_read",
+            "created_at",
+            "updated_at",
+        ]

@@ -39,6 +39,12 @@ from .views import (
     my_applications,
     my_subscription,
     next_question,
+    create_notification,
+    notification_list,
+    unread_notification_count,
+    mark_notification_read,
+    mark_all_notifications_read,
+    delete_notification,
     parse_resume,
     payment_history,
     profile,
@@ -133,4 +139,37 @@ urlpatterns = [
     path("admin/revenue-report/", admin_revenue_report, name="admin-revenue-report"),
     path("admin/refund/", admin_refund_payment, name="admin-refund-payment"),
     path("admin/financial-audit-logs/", admin_financial_audit_logs, name="admin-financial-audit-logs"),
+
+
+        # Notification Dashboard APIs
+    path(
+        "notifications/",
+        notification_list,
+        name="notification-list"
+    ),
+    path(
+        "notifications/create/",
+        create_notification,
+        name="create-notification"
+    ),
+    path(
+        "notifications/unread-count/",
+        unread_notification_count,
+        name="unread-notification-count"
+    ),
+    path(
+        "notifications/<int:notification_id>/read/",
+        mark_notification_read,
+        name="mark-notification-read"
+    ),
+    path(
+        "notifications/mark-all-read/",
+        mark_all_notifications_read,
+        name="mark-all-notifications-read"
+    ),
+    path(
+        "notifications/<int:notification_id>/",
+        delete_notification,
+        name="delete-notification"
+    ),
 ]

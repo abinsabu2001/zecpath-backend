@@ -9,6 +9,7 @@ from .models import (
     SubscriptionPlan,
     UserSubscription,
     Job,
+    Notification,
 )
 
 
@@ -241,3 +242,239 @@ class SecurityTests(APITestCase):
             response.status_code,
             status.HTTP_401_UNAUTHORIZED
         )
+
+
+class NotificationTests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.admin = CustomUser.objects.create_user(
+            username="notification_admin",
+            email="notification_admin@test.com",
+            password="Test@12345",
+            role="Admin",
+            is_staff=True
+        )
+
+        self.employer = CustomUser.objects.create_user(
+            username="notification_employer",
+            email="notification_employer@test.com",
+            password="Test@12345",
+            role="Employer"
+        )
+
+        self.candidate = CustomUser.objects.create_user(
+            username="notification_candidate",
+            email="notification_candidate@test.com",
+            password="Test@12345",
+            role="Candidate"
+        )
+
+    def create_notification(self):
+
+        self.client.force_authenticate(
+            user=self.admin
+        )
+
+        response = self.client.post(
+            reverse("create-notification"),
+            {
+                "user": self.employer.id,
+                "title": "Test Notification",
+                "message": "This is a test notification.",
+                "notification_type": "JOB"
+            },
+            format="json"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED
+        )
+
+        return response.data["id"]
+
+    def test_admin_can_create_notification(self):
+
+        notification_id = self.create_notification()
+
+        self.assertTrue(
+            Notification.objects.filter(
+                id=notification_id,
+                user=self.employer
+            ).exists()
+        )
+
+    def test_user_can_list_own_notifications(self):
+
+        notification_id = self.create_notification()
+
+        notification = Notification.objects.get(
+            id=notification_id
+        )
+
+        self.client.force_authenticate(
+            user=self.employer
+        )
+
+        response = self.client.get(
+            reverse("notification-list")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        results = response.data["results"]
+
+        self.assertEqual(
+            len(results),
+            1
+        )
+
+        self.assertEqual(
+            results[0]["id"],
+            notification.id
+        )
+
+    def test_user_cannot_see_other_users_notifications(self):
+
+        self.create_notification()
+
+        self.client.force_authenticate(
+            user=self.candidate
+        )
+
+        response = self.client.get(
+            reverse("notification-list")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        self.assertEqual(
+            response.data["count"],
+            0
+        )
+
+    def test_unread_notification_count(self):
+
+        self.create_notification()
+
+        self.client.force_authenticate(
+            user=self.employer
+        )
+
+        response = self.client.get(
+            reverse("unread-notification-count")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        self.assertEqual(
+            response.data["unread_count"],
+            1
+        )
+
+    def test_mark_notification_as_read(self):
+
+        notification_id = self.create_notification()
+
+        self.client.force_authenticate(
+            user=self.employer
+        )
+
+        response = self.client.patch(
+            reverse(
+                "mark-notification-read",
+                kwargs={
+                    "notification_id": notification_id
+                }
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        notification = Notification.objects.get(
+            id=notification_id
+        )
+
+        self.assertTrue(
+            notification.is_read
+        )
+
+    def test_mark_all_notifications_as_read(self):
+
+        self.create_notification()
+
+        self.client.force_authenticate(
+            user=self.admin
+        )
+
+        Notification.objects.create(
+            user=self.employer,
+            title="Second Notification",
+            message="Second test notification.",
+            notification_type="GENERAL"
+        )
+
+        self.client.force_authenticate(
+            user=self.employer
+        )
+
+        response = self.client.patch(
+            reverse("mark-all-notifications-read")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        unread_count = Notification.objects.filter(
+            user=self.employer,
+            is_read=False
+        ).count()
+
+        self.assertEqual(
+            unread_count,
+            0
+        )
+
+    def test_user_can_delete_own_notification(self):
+
+        notification_id = self.create_notification()
+
+        self.client.force_authenticate(
+            user=self.employer
+        )
+
+        response = self.client.delete(
+            reverse(
+                "delete-notification",
+                kwargs={
+                    "notification_id": notification_id
+                }
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK
+        )
+
+        self.assertFalse(
+            Notification.objects.filter(
+                id=notification_id
+            ).exists()
+        )        

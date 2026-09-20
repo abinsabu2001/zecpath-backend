@@ -52,6 +52,7 @@ from .models import (
     InterviewSchedule,
     InterviewState,
     Job,
+    Notification,
     PaymentTransaction,
     QuestionFlow,
     QuestionTemplate,
@@ -77,6 +78,7 @@ from .serializers import (
     EmployerProfileSerializer,
     InterviewScheduleSerializer,
     JobSerializer,
+    NotificationSerializer,
     QuestionTemplateSerializer,
     UserSignupSerializer,
 )
@@ -3166,3 +3168,161 @@ def admin_financial_audit_logs(request):
         "total_suspicious_transactions": len(suspicious_data),
         "suspicious_transactions": suspicious_data
     })
+
+
+# ==========================================
+# Notification Dashboard APIs
+# ==========================================
+
+@extend_schema(
+    summary="Create Notification",
+    description="Creates a notification for a specified user. Admin access required.",
+    request=NotificationSerializer,
+    responses={201: NotificationSerializer},
+    tags=["Notifications"],
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def create_notification(request):
+
+    serializer = NotificationSerializer(data=request.data)
+
+    if serializer.is_valid():
+        notification = serializer.save()
+
+        return Response(
+            NotificationSerializer(notification).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+@extend_schema(
+    summary="List My Notifications",
+    description="Returns notifications belonging only to the authenticated user.",
+    responses={200: NotificationSerializer(many=True)},
+    tags=["Notifications"],
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def notification_list(request):
+
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by("-created_at")
+
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
+
+    result = paginator.paginate_queryset(
+        notifications,
+        request
+    )
+
+    serializer = NotificationSerializer(
+        result,
+        many=True
+    )
+
+    return paginator.get_paginated_response(
+        serializer.data
+    )
+
+
+@extend_schema(
+    summary="Get Unread Notification Count",
+    description="Returns the number of unread notifications for the authenticated user.",
+    tags=["Notifications"],
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def unread_notification_count(request):
+
+    unread_count = Notification.objects.filter(
+        user=request.user,
+        is_read=False
+    ).count()
+
+    return Response({
+        "unread_count": unread_count
+    })
+
+
+@extend_schema(
+    summary="Mark Notification as Read",
+    description="Marks one notification belonging to the authenticated user as read.",
+    responses={200: NotificationSerializer},
+    tags=["Notifications"],
+)
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def mark_notification_read(request, notification_id):
+
+    try:
+        notification = Notification.objects.get(
+            id=notification_id,
+            user=request.user
+        )
+    except Notification.DoesNotExist:
+        return Response(
+            {"message": "Notification not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    notification.is_read = True
+    notification.save()
+
+    serializer = NotificationSerializer(notification)
+
+    return Response(serializer.data)
+
+
+@extend_schema(
+    summary="Mark All Notifications as Read",
+    description="Marks all notifications belonging to the authenticated user as read.",
+    tags=["Notifications"],
+)
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+
+    updated_count = Notification.objects.filter(
+        user=request.user,
+        is_read=False
+    ).update(is_read=True)
+
+    return Response({
+        "message": "All notifications marked as read.",
+        "updated_count": updated_count
+    })
+
+
+@extend_schema(
+    summary="Delete Notification",
+    description="Deletes a notification belonging to the authenticated user.",
+    tags=["Notifications"],
+)
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_notification(request, notification_id):
+
+    try:
+        notification = Notification.objects.get(
+            id=notification_id,
+            user=request.user
+        )
+    except Notification.DoesNotExist:
+        return Response(
+            {"message": "Notification not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    notification.delete()
+
+    return Response(
+        {"message": "Notification deleted successfully."},
+        status=status.HTTP_200_OK
+    )
