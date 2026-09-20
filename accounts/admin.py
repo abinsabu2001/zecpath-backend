@@ -1,29 +1,27 @@
 from django.contrib import admin
+
 from .models import (
-    CustomUser,
-    CandidateProfile,
-    EmployerProfile,
-    Job,
-    Application,
-    AuditLog,
+    AIAnswer,
     AICall,
     AIInterviewSession,
     AIQuestion,
-    AIAnswer,
-    CallLog,
-    QuestionTemplate,
-    QuestionFlow,
-    InterviewState,
+    Application,
+    AuditLog,
     AvailabilitySlot,
+    BillingHistory,
+    CallLog,
+    CandidateProfile,
+    CustomUser,
+    EmployerProfile,
     InterviewSchedule,
+    InterviewState,
+    Job,
+    PaymentTransaction,
+    QuestionFlow,
+    QuestionTemplate,
     SubscriptionPlan,
     UserSubscription,
-    PaymentTransaction,
-    BillingHistory,
-
-
 )
-
 
 
 @admin.register(CustomUser)

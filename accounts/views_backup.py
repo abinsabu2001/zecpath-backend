@@ -2,8 +2,7 @@ import logging
 
 from django.core.cache import cache
 from django.db.models import Count, Q, Sum
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
-from rest_framework import serializers, status
+from rest_framework import status
 from rest_framework.decorators import (
     api_view,
     parser_classes,
@@ -24,7 +23,7 @@ ai_logger = logging.getLogger("ai_events")
 import os
 import re
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from uuid import uuid4
 
 import razorpay
@@ -92,29 +91,7 @@ from .utils import (
 )
 
 
-@extend_schema(
-    summary="User Signup",
-    description="Creates a new user account in the ZecPath platform.",
-    request=UserSignupSerializer,
-    responses={
-        201: OpenApiResponse(
-            response=inline_serializer(
-                name="SignupResponse",
-                fields={
-                    "message": serializers.CharField(
-                        default="User registered successfully"
-                    ),
-                },
-            ),
-            description="User account created successfully.",
-        ),
-        400: OpenApiResponse(
-            description="Invalid registration data."
-        ),
-    },
-    tags=["Authentication"],
-)
-@api_view(["POST"])
+@api_view(['POST'])
 def signup(request):
     logger.info(f"Signup request received from {request.META.get('REMOTE_ADDR')}")
     serializer = UserSignupSerializer(data=request.data)
@@ -126,44 +103,10 @@ def signup(request):
             status=status.HTTP_201_CREATED
         )
 
-    return Response(
-        serializer.errors,
-        status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(
-    summary="Get User Profile",
-    description="Returns the profile information of the currently authenticated user.",
-    responses={
-        200: OpenApiResponse(
-            response=inline_serializer(
-                name="ProfileResponse",
-                fields={
-                    "message": serializers.CharField(
-                        default="Welcome!"
-                    ),
-                    "username": serializers.CharField(
-                        help_text="Username of the authenticated user."
-                    ),
-                    "email": serializers.EmailField(
-                        help_text="Email address of the authenticated user."
-                    ),
-                    "role": serializers.CharField(
-                        help_text="Role assigned to the authenticated user."
-                    ),
-                },
-            ),
-            description="Authenticated user's profile information.",
-        ),
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or are invalid."
-        ),
-    },
-    tags=["Authentication"],
-)
-
-@api_view(["GET"])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def profile(request):
     return Response({
@@ -174,33 +117,7 @@ def profile(request):
     })
 
 
-@extend_schema(
-    summary="Admin Dashboard",
-    description="Returns a welcome message for authenticated administrators.",
-    responses={
-        200: OpenApiResponse(
-            response=inline_serializer(
-                name="AdminDashboardResponse",
-                fields={
-                    "message": serializers.CharField(
-                        help_text="Welcome message for the administrator.",
-                        default="Welcome Admin",
-                    ),
-                },
-            ),
-            description="Admin dashboard response.",
-        ),
-        401: OpenApiResponse(
-            description="Authentication credentials were not provided or are invalid."
-        ),
-        403: OpenApiResponse(
-            description="User is authenticated but does not have administrator permissions."
-        ),
-    },
-    tags=["Admin"],
-)
-
-@api_view(["GET"])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def admin_dashboard(request):
     return Response({"message": "Welcome Admin"})
@@ -304,31 +221,33 @@ def candidate_dashboard(request):
 
     candidate = request.user
 
-    application_stats = Application.objects.filter(
+    applied_jobs = Application.objects.filter(
         candidate=candidate
-    ).aggregate(
-        applied_jobs=Count("id"),
-        interviews=Count(
-            "id",
-            filter=Q(status="Interview Scheduled")
-        ),
-        selected=Count(
-            "id",
-            filter=Q(status="Selected")
-        ),
-        rejected=Count(
-            "id",
-            filter=Q(status="Rejected")
-        ),
-    )
+    ).count()
+
+    interviews = Application.objects.filter(
+        candidate=candidate,
+        status="Interview Scheduled"
+    ).count()
+
+    selected = Application.objects.filter(
+        candidate=candidate,
+        status="Selected"
+    ).count()
+
+    rejected = Application.objects.filter(
+        candidate=candidate,
+        status="Rejected"
+    ).count()
 
     return Response({
         "candidate": candidate.username,
-        "applied_jobs": application_stats["applied_jobs"],
-        "interviews": application_stats["interviews"],
-        "selected": application_stats["selected"],
-        "rejected": application_stats["rejected"]
+        "applied_jobs": applied_jobs,
+        "interviews": interviews,
+        "selected": selected,
+        "rejected": rejected
     })
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsCandidateUser])
 def recommended_jobs(request):
@@ -516,11 +435,6 @@ def candidate_profile(request):
         profile.save()
         return Response({"message": "Candidate profile deleted successfully"})
 
-@extend_schema(
-    request=EmployerProfileSerializer,
-    responses={201: EmployerProfileSerializer},
-    tags=["Employer Profile"],
-)
 
 @api_view(['POST', 'GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated, IsEmployerUser])
@@ -593,11 +507,6 @@ def candidate_list(request):
 
     return paginator.get_paginated_response(serializer.data)
 
-@extend_schema(
-    request=JobSerializer,
-    responses={201: JobSerializer},
-    tags=["Jobs"],
-)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsEmployerUser, HasActiveSubscription])
 def create_job(request):
@@ -765,57 +674,23 @@ def job_list(request):
     salary_max = request.GET.get('salary_max')
 
     if salary_min:
-        try:
-            salary_min = Decimal(salary_min)
-        except InvalidOperation:
-            return Response(
-                {"error": "salary_min must be a valid number"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if salary_min < 0:
-            return Response(
-                {"error": "salary_min cannot be negative"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         jobs = jobs.filter(salary_min__gte=salary_min)
 
     if salary_max:
-        try:
-            salary_max = Decimal(salary_max)
-        except InvalidOperation:
-            return Response(
-                {"error": "salary_max must be a valid number"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if salary_max < 0:
-            return Response(
-                {"error": "salary_max cannot be negative"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         jobs = jobs.filter(salary_max__lte=salary_max)
-
-    # Check salary range
-    if salary_min and salary_max and salary_min > salary_max:
-        return Response(
-            {"error": "salary_min cannot be greater than salary_max"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
     # Search
     search = request.GET.get('search')
 
     if search:
         jobs = jobs.filter(
-            Q(title__icontains=search)
-            | Q(description__icontains=search)
-            | Q(skills__icontains=search)
+            title__icontains=search
+        ) | Job.objects.filter(
+            description__icontains=search
+        ) | Job.objects.filter(
+            skills__icontains=search
         )
 
-    # Pagination
     paginator = PageNumberPagination()
     paginator.page_size = 5
 
@@ -824,6 +699,7 @@ def job_list(request):
     serializer = JobSerializer(result, many=True)
 
     return paginator.get_paginated_response(serializer.data)
+
 @api_view(['GET'])
 def featured_jobs(request):
     jobs = Job.objects.filter(
@@ -1385,14 +1261,7 @@ def question_templates(request):
 
     return Response(serializer.data)
 
-@extend_schema(
-    request=inline_serializer(
-        name="NextQuestionRequest",
-        fields={
-            "answer": serializers.CharField(required=False)
-        }
-    )
-)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def next_question(request):
@@ -1442,20 +1311,7 @@ def next_question(request):
             "message": "Interview Completed"
         })    
 
-@extend_schema(
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "answer_id": {
-                    "type": "integer",
-                    "example": 1
-                }
-            },
-            "required": ["answer_id"]
-        }
-    }
-)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def evaluate_answer(request):
@@ -1623,7 +1479,7 @@ def schedule_interview(request):
         else:
             email_status = "Candidate email not found."
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print("Email Error:", e)
         email_status = f"Email failed: {e!s}"
 
@@ -1716,7 +1572,7 @@ def send_reminders_api(request):
             "message": "Interview reminders processed successfully."
         })
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
 
         return Response(
             {
@@ -2226,14 +2082,6 @@ def my_subscription(request):
     })
 
 
-@extend_schema(
-    request=inline_serializer(
-        name="SubscribeRequest",
-        fields={
-            "plan_id": serializers.IntegerField()
-        }
-    )
-)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsEmployerUser])
 def subscribe(request):
@@ -2341,14 +2189,7 @@ def payment_history(request):
 
     return Response(data)    
 
-@extend_schema(
-    request=inline_serializer(
-        name="CreatePaymentOrderRequest",
-        fields={
-            "plan_id": serializers.IntegerField()
-        }
-    )
-)
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsEmployerUser])
 def create_payment_order(request):
@@ -2440,16 +2281,7 @@ def create_payment_order(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-@extend_schema(
-    request=inline_serializer(
-        name="VerifyPaymentRequest",
-        fields={
-            "razorpay_order_id": serializers.CharField(),
-            "razorpay_payment_id": serializers.CharField(),
-            "razorpay_signature": serializers.CharField(),
-        }
-    )
-)
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsEmployerUser])
@@ -2477,103 +2309,30 @@ def verify_payment(request):
             )
         )
 
-        # 1. Verify Razorpay payment signature
+        # Verify Razorpay signature
         client.utility.verify_payment_signature({
             "razorpay_order_id": razorpay_order_id,
             "razorpay_payment_id": razorpay_payment_id,
             "razorpay_signature": razorpay_signature
         })
 
-        # 2. Find the transaction belonging to this user
+        # Find our pending transaction
         transaction = PaymentTransaction.objects.get(
             razorpay_order_id=razorpay_order_id,
             user=request.user
         )
 
-        # 3. Get the original Razorpay order details
-        # This contains the plan_id created by our backend.
-        order = client.order.fetch(razorpay_order_id)
-
-        notes = order.get("notes", {})
-        plan_id = notes.get("plan_id")
-
-        if not plan_id:
-            return Response(
-                {"message": "Subscription plan information not found"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # 4. Get the subscription plan
-        plan = SubscriptionPlan.objects.get(
-            id=plan_id,
-            is_active=True
-        )
-
-        # 5. Make sure the Razorpay order amount matches our plan price
-        expected_amount = int(plan.price * Decimal(100))
-
-        if int(order.get("amount", 0)) != expected_amount:
-            return Response(
-                {"message": "Payment amount does not match subscription plan"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # 6. If this payment was already processed, return safely
-        if transaction.payment_status == "SUCCESS" and transaction.subscription:
-            return Response(
-                {
-                    "message": "Payment already verified",
-                    "transaction_id": transaction.transaction_id,
-                    "payment_status": transaction.payment_status,
-                    "subscription_id": transaction.subscription.id,
-                    "plan": transaction.subscription.plan.name
-                },
-                status=status.HTTP_200_OK
-            )
-
-        # 7. Cancel any existing active subscription
-        UserSubscription.objects.filter(
-            user=request.user,
-            status="ACTIVE"
-        ).update(
-            status="CANCELLED",
-            end_date=timezone.now()
-        )
-
-        # 8. Create the new active subscription
-        subscription = UserSubscription.objects.create(
-            user=request.user,
-            plan=plan,
-            start_date=timezone.now(),
-            status="ACTIVE"
-        )
-
-        # 9. Update the payment transaction
+        # Update payment details
         transaction.razorpay_payment_id = razorpay_payment_id
         transaction.razorpay_signature = razorpay_signature
         transaction.payment_status = "SUCCESS"
-        transaction.subscription = subscription
         transaction.save()
 
-        # 10. Create billing history
-        BillingHistory.objects.create(
-            user=request.user,
-            subscription=subscription,
-            amount=plan.price,
-            invoice_number=f"INV-{request.user.id}-{subscription.id}",
-            description=f"{plan.name} subscription"
-        )
-
-        # 11. Return success
         return Response(
             {
-                "message": "Payment verified and subscription activated successfully",
+                "message": "Payment verified successfully",
                 "transaction_id": transaction.transaction_id,
-                "payment_status": transaction.payment_status,
-                "subscription_id": subscription.id,
-                "plan": plan.name,
-                "price": str(plan.price),
-                "subscription_status": subscription.status
+                "payment_status": transaction.payment_status
             },
             status=status.HTTP_200_OK
         )
@@ -2595,23 +2354,18 @@ def verify_payment(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    except SubscriptionPlan.DoesNotExist:
-        return Response(
-            {
-                "message": "Subscription plan not found"
-            },
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    except Exception:
+    except Exception as e:
         error_logger.exception("Payment verification failed")
 
         return Response(
             {
-                "message": "Payment verification failed"
+                "message": "Payment verification failed",
+                "error": str(e)
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        )        
+
+
 @api_view(["POST"])
 @permission_classes([])
 def razorpay_webhook(request):
@@ -3083,7 +2837,7 @@ def admin_refund_payment(request):
             status=status.HTTP_200_OK
         )
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
 
         AuditLog.objects.create(
             admin=request.user,

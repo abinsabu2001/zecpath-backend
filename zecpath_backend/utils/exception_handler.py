@@ -1,5 +1,6 @@
-from rest_framework.views import exception_handler
 import logging
+
+from rest_framework.views import exception_handler
 
 security_logger = logging.getLogger("django.security")
 

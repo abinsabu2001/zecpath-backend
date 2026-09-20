@@ -18,21 +18,23 @@ class SubscriptionMiddleware:
 
     def __call__(self, request):
 
-        # Only check authenticated users
-        if request.user.is_authenticated:
+        # Only check authenticated users and selected premium endpoints
+        if (
+            request.user.is_authenticated
+            and request.path in self.PREMIUM_PATHS
+        ):
+            subscription = get_active_subscription(request.user)
 
-            # Check only selected premium endpoints
-            if request.path in self.PREMIUM_PATHS:
-
-                subscription = get_active_subscription(request.user)
-
-                if not subscription:
-                    return JsonResponse(
-                        {
-                            "message": "An active subscription is required to access this feature."
-                        },
-                        status=403
-                    )
+            if not subscription:
+                return JsonResponse(
+                    {
+                        "message": (
+                            "An active subscription is required "
+                            "to access this feature."
+                        )
+                    },
+                    status=403,
+                )
 
         response = self.get_response(request)
 

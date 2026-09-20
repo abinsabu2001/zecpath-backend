@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 88
+force-exclude = true
+
+exclude = [
+    "accounts/migrations",
+    "accounts/views_backup.py",
+    "backups",
+]
+
+[tool.ruff.lint]
+per-file-ignores = {
+    "accounts/serializers.py" = ["RUF012"],
+    "accounts/models.py" = ["RUF012"],
+    "accounts/subscription_middleware.py" = ["RUF012"],
+}

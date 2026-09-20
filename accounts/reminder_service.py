@@ -1,8 +1,8 @@
-from django.utils import timezone
-from datetime import timedelta
 
-from .models import InterviewReminder
+from django.utils import timezone
+
 from .email_utils import send_notification_email
+from .models import InterviewReminder
 
 
 def send_interview_reminders():
@@ -43,7 +43,7 @@ def send_interview_reminders():
             reminder.sent_at = now
             reminder.save()
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
 
             reminder.status = "Failed"
             reminder.failure_reason = str(e)

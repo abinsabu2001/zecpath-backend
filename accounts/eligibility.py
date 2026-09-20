@@ -24,7 +24,4 @@ def check_candidate_eligibility(application):
         return False
 
     # Rule 3 - Resume should exist
-    if not profile.resume:
-        return False
-
-    return True
+    return bool(profile.resume)

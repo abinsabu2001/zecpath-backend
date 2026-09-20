@@ -1,61 +1,181 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Razorpay Test Payment</title>
+    <title>ZecPath Razorpay Payment</title>
 </head>
 
 <body>
 
-    <h2>Razorpay Test Payment - ₹999</h2>
+    <h2>ZecPath PRO Subscription - ₹999</h2>
+
+    <input
+        type="password"
+        id="token"
+        placeholder="Paste your employer access token"
+        style="width: 400px; padding: 8px;"
+    >
+
+    <br><br>
 
     <button id="pay-button">Pay ₹999</button>
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <script>
+        document.getElementById("pay-button").onclick = async function () {
 
-        var options = {
-            key: "rzp_test_TR5u4ODFrnl1pN",
-            amount: 99900,
-            currency: "INR",
+            const token = document.getElementById("token").value.trim();
 
-            name: "ZecPath",
-            description: "PRO Subscription",
+            if (!token) {
+                alert("Please enter your access token");
+                return;
+            }
 
-            "order_id": "order_TR8t45I4oYkxPH",
+            try {
 
-            handler: function (response) {
+                // 1. Create Razorpay order through Django backend
+                const orderResponse = await fetch(
+                    "http://127.0.0.1:8000/api/create-payment-order/",
+                    {
+                        method: "POST",
 
-                console.log("Payment ID:", response.razorpay_payment_id);
-                console.log("Order ID:", response.razorpay_order_id);
-                console.log("Signature:", response.razorpay_signature);
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer " + token
+                        },
+
+                        body: JSON.stringify({
+                            "plan_id": 2
+                        })
+                    }
+                );
+
+                const orderData = await orderResponse.json();
+
+                console.log("Create Order Response:", orderData);
+
+                if (!orderResponse.ok) {
+                    alert(
+                        "Order creation failed: " +
+                        (orderData.message || "Unknown error")
+                    );
+                    return;
+                }
+
+                // 2. Open Razorpay Checkout
+                const options = {
+
+                    key: orderData.razorpay_key_id,
+
+                    amount: orderData.amount,
+
+                    currency: orderData.currency,
+
+                    name: "ZecPath",
+
+                    description: orderData.plan_name + " Subscription",
+
+                    order_id: orderData.order_id,
+
+                    handler: async function (response) {
+
+                        console.log(
+                            "Payment ID:",
+                            response.razorpay_payment_id
+                        );
+
+                        console.log(
+                            "Order ID:",
+                            response.razorpay_order_id
+                        );
+
+                        console.log(
+                            "Signature:",
+                            response.razorpay_signature
+                        );
+
+                        // 3. Verify payment through Django backend
+                        const verifyResponse = await fetch(
+                            "http://127.0.0.1:8000/api/verify-payment/",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "Authorization": "Bearer " + token
+                                },
+
+                                body: JSON.stringify({
+                                    "razorpay_order_id":
+                                        response.razorpay_order_id,
+
+                                    "razorpay_payment_id":
+                                        response.razorpay_payment_id,
+
+                                    "razorpay_signature":
+                                        response.razorpay_signature
+                                })
+                            }
+                        );
+
+                        const verifyData = await verifyResponse.json();
+
+                        console.log(
+                            "Verification Response:",
+                            verifyData
+                        );
+
+                        if (verifyResponse.ok) {
+
+                            alert(
+                                "Payment verified successfully! ✅"
+                            );
+
+                        } else {
+
+                            alert(
+                                "Payment verification failed: " +
+                                (verifyData.message || "Unknown error")
+                            );
+                        }
+                    },
+
+                    prefill: {
+                        name: "",
+                        email: ""
+                    },
+
+                    theme: {
+                        color: "#3399cc"
+                    }
+                };
+
+                const razorpay = new Razorpay(options);
+
+                razorpay.on("payment.failed", function (response) {
+
+                    console.error(
+                        "Payment failed:",
+                        response.error
+                    );
+
+                    alert(
+                        "Payment failed: " +
+                        response.error.description
+                    );
+                });
+
+                razorpay.open();
+
+            } catch (error) {
+
+                console.error("Error:", error);
 
                 alert(
-                    "Payment successful!\n\n" +
-                    "Order ID: " + response.razorpay_order_id + "\n\n" +
-                    "Payment ID: " + response.razorpay_payment_id + "\n\n" +
-                    "Signature: " + response.razorpay_signature
+                    "Something went wrong. Check the browser console."
                 );
-            },
-
-            modal: {
-                ondismiss: function () {
-                    console.log("Payment window closed");
-                }
-            },
-
-            theme: {
-                color: "#3399cc"
             }
         };
-
-        var razorpay = new Razorpay(options);
-
-        document.getElementById("pay-button").onclick = function (e) {
-            e.preventDefault();
-            razorpay.open();
-        };
-
     </script>
 
 </body>

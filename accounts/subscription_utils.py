@@ -1,8 +1,8 @@
 from datetime import timedelta
+
 from django.utils import timezone
 
 from .models import UserSubscription
-
 
 GRACE_PERIOD_DAYS = 3
 

@@ -94,6 +94,14 @@ class Job(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["status", "-created_at"],
+                name="job_status_created_idx",
+            ),
+        ]
+
     def __str__(self):
         return self.title
 
@@ -270,10 +278,6 @@ class AIAnswer(models.Model):
 
     answer_score = models.FloatField(default=0)
 
-    answer_text = models.TextField()
-
-    answer_score = models.FloatField(default=0)
-
     relevance_score = models.FloatField(default=0)
 
     completeness_score = models.FloatField(default=0)
@@ -288,7 +292,6 @@ class AIAnswer(models.Model):
 
     def __str__(self):
         return f"Answer for Question {self.question.question_order}"
-
 
 class CallLog(models.Model):
 

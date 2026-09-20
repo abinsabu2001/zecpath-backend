@@ -1,21 +1,22 @@
+from cryptography.fernet import InvalidToken
 from rest_framework import serializers
+
+from .encryption import decrypt_value, encrypt_value
 from .models import (
-    CustomUser,
-    CandidateProfile,
-    EmployerProfile,
-    Job,
+    AIAnswer,
     Application,
     AuditLog,
-    QuestionTemplate,
-    QuestionFlow,
-    InterviewState,
-    AIInterviewSession,
-    AIQuestion,
-    AIAnswer,
     AvailabilitySlot,
+    CandidateProfile,
+    CustomUser,
+    EmployerProfile,
     InterviewSchedule,
+    InterviewState,
+    Job,
+    QuestionFlow,
+    QuestionTemplate,
 )
-from .encryption import encrypt_value, decrypt_value
+
 
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -46,7 +47,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
         if instance.phone:
             try:
                 data["phone"] = decrypt_value(instance.phone)
-            except Exception:
+            except InvalidToken:
                 data["phone"] = instance.phone
 
         return data
@@ -142,7 +143,7 @@ class JobSerializer(serializers.ModelSerializer):
             "id",
             "employer",
             "created_at",
-            "updated_at"
+            "updated_at",
         ]
 
     def validate_title(self, value):
@@ -170,13 +171,17 @@ class JobSerializer(serializers.ModelSerializer):
         salary_min = data.get("salary_min")
         salary_max = data.get("salary_max")
 
-        if salary_min is not None and salary_max is not None:
-           if salary_max < salary_min:
-               raise serializers.ValidationError(
+        if (
+            salary_min is not None
+            and salary_max is not None
+            and salary_max < salary_min
+        ):
+            raise serializers.ValidationError(
                 "Maximum salary must be greater than minimum salary."
-               )
+            )
 
         return data
+
 class ApplicationSerializer(serializers.ModelSerializer):
     job_title = serializers.CharField(
         source="job.title",
